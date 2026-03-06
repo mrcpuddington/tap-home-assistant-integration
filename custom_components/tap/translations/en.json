@@ -1,0 +1,10 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Tap",
+        "description": "Continue to sign in with your Tap cloud account."
+      }
+    }
+  }
+}

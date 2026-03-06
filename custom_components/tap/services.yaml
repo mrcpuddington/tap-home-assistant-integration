@@ -1,0 +1,38 @@
+complete_task:
+  name: Complete task
+  description: Mark a Tap task as complete.
+  fields:
+    task_id:
+      name: Task ID
+      description: UUID of the Tap task.
+      required: true
+      selector:
+        text:
+
+reopen_task:
+  name: Reopen task
+  description: Reopen the most recent completion for a Tap task.
+  fields:
+    task_id:
+      name: Task ID
+      description: UUID of the Tap task.
+      required: true
+      selector:
+        text:
+
+add_log_entry:
+  name: Add log entry
+  description: Create a new entry in a Tap log.
+  fields:
+    log_id:
+      name: Log ID
+      description: UUID of the Tap log.
+      required: true
+      selector:
+        text:
+    note:
+      name: Note
+      description: Optional note for the log entry.
+      required: false
+      selector:
+        text:

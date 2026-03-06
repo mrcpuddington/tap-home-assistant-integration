@@ -1,0 +1,14 @@
+{
+  "domain": "tap",
+  "name": "Tap",
+  "version": "0.1.0",
+  "documentation": "https://tapprfid.com/home-assistant",
+  "issue_tracker": "https://github.com/coreybusuttil/tap-home-assistant-integration/issues",
+  "integration_type": "service",
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "codeowners": [
+    "@coreybusuttil"
+  ]
+}
