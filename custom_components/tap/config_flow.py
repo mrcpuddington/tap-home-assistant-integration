@@ -32,6 +32,10 @@ class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, d
         self._oauth_config = {}
 
     @property
+    def logger(self) -> logging.Logger:
+        return _LOGGER
+
+    @property
     def extra_authorize_data(self) -> dict[str, Any]:
         return {"scope": self._oauth_config.get(CONF_SCOPES, PROD_SCOPES)}
 
