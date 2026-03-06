@@ -19,7 +19,8 @@ from .const import (
 )
 
 
-class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=DOMAIN):
+class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler):
+    DOMAIN = DOMAIN
     VERSION = 1
     _oauth_config: dict[str, str]
 
