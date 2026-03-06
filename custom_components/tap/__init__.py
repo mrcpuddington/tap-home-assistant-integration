@@ -4,6 +4,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_entry_oauth2_flow
 from homeassistant.helpers.config_entry_oauth2_flow import LocalOAuth2Implementation
 from homeassistant.helpers.typing import ConfigType
@@ -11,6 +12,7 @@ import voluptuous as vol
 
 from .api import TapApiClient
 from .const import (
+    ATTR_ENTITY_ID,
     ATTR_LOG_ID,
     ATTR_NOTE,
     ATTR_TASK_ID,
@@ -118,12 +120,36 @@ def _register_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_COMPLETE_TASK):
         return
 
+    def _resolve_task_id(call: ServiceCall) -> str:
+        direct_task_id = str(call.data.get(ATTR_TASK_ID, "")).strip()
+        if direct_task_id:
+            return direct_task_id
+
+        raw_entity_ids = call.data.get(ATTR_ENTITY_ID)
+        if isinstance(raw_entity_ids, str):
+            entity_ids = [raw_entity_ids]
+        elif isinstance(raw_entity_ids, list):
+            entity_ids = [str(item) for item in raw_entity_ids if isinstance(item, str)]
+        else:
+            entity_ids = []
+
+        for entity_id in entity_ids:
+            state = hass.states.get(entity_id)
+            if not state:
+                continue
+            state_task_id = str(state.attributes.get(ATTR_TASK_ID, "")).strip()
+            if state_task_id:
+                return state_task_id
+
+        raise HomeAssistantError("Provide task_id or target a Tap task entity with a task_id attribute.")
+
     async def _handle_complete_task(call: ServiceCall) -> None:
         api = _first_api(hass)
         coordinator = _first_coordinator(hass)
         if not api or not coordinator:
             return
-        await api.async_complete_task(call.data[ATTR_TASK_ID])
+        task_id = _resolve_task_id(call)
+        await api.async_complete_task(task_id)
         await coordinator.async_request_refresh()
 
     async def _handle_reopen_task(call: ServiceCall) -> None:
@@ -131,7 +157,8 @@ def _register_services(hass: HomeAssistant) -> None:
         coordinator = _first_coordinator(hass)
         if not api or not coordinator:
             return
-        await api.async_reopen_task(call.data[ATTR_TASK_ID])
+        task_id = _resolve_task_id(call)
+        await api.async_reopen_task(task_id)
         await coordinator.async_request_refresh()
 
     async def _handle_add_log_entry(call: ServiceCall) -> None:
@@ -146,13 +173,25 @@ def _register_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_COMPLETE_TASK,
         _handle_complete_task,
-        schema=vol.Schema({vol.Required(ATTR_TASK_ID): str}),
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_TASK_ID): str,
+                vol.Optional(ATTR_ENTITY_ID): vol.Any(str, [str]),
+            },
+            extra=vol.ALLOW_EXTRA,
+        ),
     )
     hass.services.async_register(
         DOMAIN,
         SERVICE_REOPEN_TASK,
         _handle_reopen_task,
-        schema=vol.Schema({vol.Required(ATTR_TASK_ID): str}),
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_TASK_ID): str,
+                vol.Optional(ATTR_ENTITY_ID): vol.Any(str, [str]),
+            },
+            extra=vol.ALLOW_EXTRA,
+        ),
     )
     hass.services.async_register(
         DOMAIN,

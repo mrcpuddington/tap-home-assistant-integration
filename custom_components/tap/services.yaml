@@ -1,22 +1,30 @@
 complete_task:
   name: Complete task
   description: Mark a Tap task as complete.
+  target:
+    entity:
+      integration: tap
+      domain: sensor
   fields:
     task_id:
       name: Task ID
-      description: UUID of the Tap task.
-      required: true
+      description: UUID of the Tap task. Optional if a Tap task sensor is targeted.
+      required: false
       selector:
         text:
 
 reopen_task:
   name: Reopen task
   description: Reopen the most recent completion for a Tap task.
+  target:
+    entity:
+      integration: tap
+      domain: sensor
   fields:
     task_id:
       name: Task ID
-      description: UUID of the Tap task.
-      required: true
+      description: UUID of the Tap task. Optional if a Tap task sensor is targeted.
+      required: false
       selector:
         text:
 

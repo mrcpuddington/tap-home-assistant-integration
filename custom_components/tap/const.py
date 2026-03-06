@@ -33,6 +33,7 @@ SERVICE_REOPEN_TASK = "reopen_task"
 SERVICE_ADD_LOG_ENTRY = "add_log_entry"
 
 ATTR_TASK_ID = "task_id"
+ATTR_ENTITY_ID = "entity_id"
 ATTR_LOG_ID = "log_id"
 ATTR_NOTE = "note"
 
