@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_entry_oauth2_flow
+from homeassistant.helpers.config_entry_oauth2_flow import LocalOAuth2Implementation
 from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
 
@@ -12,6 +15,8 @@ from .const import (
     ATTR_NOTE,
     ATTR_TASK_ID,
     CONF_API_BASE_URL,
+    CONF_CLIENT_ID,
+    CONF_COGNITO_DOMAIN,
     DATA_API,
     DATA_COORDINATOR,
     DOMAIN,
@@ -22,13 +27,27 @@ from .const import (
 )
 from .coordinator import TapDataCoordinator
 
+_LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, entry)
+    try:
+        implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, entry)
+    except ValueError:
+        implementation = _build_fallback_oauth_implementation(hass, entry)
+        if implementation is None:
+            raise
+
+        _LOGGER.warning("OAuth implementation metadata missing for Tap entry %s, using fallback", entry.entry_id)
+        hass.config_entries.async_update_entry(
+            entry,
+            data={**entry.data, "auth_implementation": DOMAIN},
+        )
+
     oauth_session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
     await oauth_session.async_ensure_token_valid()
 
@@ -55,6 +74,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data.pop(DOMAIN)
             _unregister_services(hass)
     return unload_ok
+
+
+def _build_fallback_oauth_implementation(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> LocalOAuth2Implementation | None:
+    client_id = entry.data.get(CONF_CLIENT_ID)
+    cognito_domain = entry.data.get(CONF_COGNITO_DOMAIN)
+    if not client_id or not cognito_domain:
+        return None
+
+    cognito_domain = str(cognito_domain).rstrip("/")
+    return LocalOAuth2Implementation(
+        hass=hass,
+        domain=DOMAIN,
+        client_id=str(client_id),
+        client_secret="",
+        authorize_url=f"{cognito_domain}/oauth2/authorize",
+        token_url=f"{cognito_domain}/oauth2/token",
+    )
 
 
 def _first_api(hass: HomeAssistant) -> TapApiClient | None:
