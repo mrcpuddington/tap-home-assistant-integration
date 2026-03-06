@@ -57,13 +57,25 @@ class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, d
             token_url=f"{self._oauth_config[CONF_COGNITO_DOMAIN]}/oauth2/token",
         )
 
+    async def _start_oauth_flow(self) -> config_entries.ConfigFlowResult:
+        implementation = self._build_local_implementation()
+        register_local_impl = getattr(self, "register_local_implementation", None)
+        if callable(register_local_impl):
+            register_local_impl(self.hass, implementation)
+            pick_impl = getattr(self, "async_step_pick_implementation", None)
+            if callable(pick_impl):
+                return await pick_impl()
+
+        # Backward-compatible path for HA versions that rely on flow_impl/async_step_auth.
+        self.flow_impl = implementation
+        return await self.async_step_auth()
+
     async def async_step_user(
         self, user_input: dict[str, str] | None = None
     ) -> config_entries.ConfigFlowResult:
         try:
             self._apply_production_config()
-            self.register_local_implementation(self.hass, self._build_local_implementation())
-            return await self.async_step_pick_implementation()
+            return await self._start_oauth_flow()
         except Exception:  # noqa: BLE001
             _LOGGER.exception("Failed to initialize Tap OAuth flow")
             return self.async_abort(reason="oauth_init_failed")
@@ -81,7 +93,12 @@ class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, d
     async def async_step_reauth(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         try:
             self._apply_production_config()
-            self.register_local_implementation(self.hass, self._build_local_implementation())
+            implementation = self._build_local_implementation()
+            register_local_impl = getattr(self, "register_local_implementation", None)
+            if callable(register_local_impl):
+                register_local_impl(self.hass, implementation)
+            else:
+                self.flow_impl = implementation
             return await super().async_step_reauth(user_input)
         except Exception:  # noqa: BLE001
             _LOGGER.exception("Failed to initialize Tap OAuth reauth flow")
