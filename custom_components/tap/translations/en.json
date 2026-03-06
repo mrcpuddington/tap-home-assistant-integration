@@ -1,5 +1,9 @@
 {
   "config": {
+    "abort": {
+      "oauth_init_failed": "Could not start OAuth sign in. Check integration logs.",
+      "reauth_failed": "Could not start reauthentication. Check integration logs."
+    },
     "step": {
       "user": {
         "title": "Connect Tap",

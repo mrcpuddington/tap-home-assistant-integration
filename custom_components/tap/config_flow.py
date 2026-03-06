@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 
 from homeassistant import config_entries
 from homeassistant.helpers import config_entry_oauth2_flow
@@ -18,9 +19,11 @@ from .const import (
     PROD_SCOPES,
 )
 
+_LOGGER = logging.getLogger(__name__)
 
-@config_entries.HANDLERS.register(DOMAIN)
-class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler):
+
+class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler, domain=DOMAIN):
+    DOMAIN = DOMAIN
     VERSION = 1
     _oauth_config: dict[str, str]
 
@@ -39,20 +42,27 @@ class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler):
             CONF_CLIENT_ID: PROD_CLIENT_ID,
             CONF_SCOPES: PROD_SCOPES,
         }
-        self.flow_impl = LocalOAuth2Implementation(
-            self.hass,
-            DOMAIN,
-            self._oauth_config[CONF_CLIENT_ID],
-            "",
-            f"{self._oauth_config[CONF_COGNITO_DOMAIN]}/oauth2/authorize",
-            f"{self._oauth_config[CONF_COGNITO_DOMAIN]}/oauth2/token",
+
+    def _build_local_implementation(self) -> LocalOAuth2Implementation:
+        return LocalOAuth2Implementation(
+            hass=self.hass,
+            domain=DOMAIN,
+            client_id=self._oauth_config[CONF_CLIENT_ID],
+            client_secret="",
+            authorize_url=f"{self._oauth_config[CONF_COGNITO_DOMAIN]}/oauth2/authorize",
+            token_url=f"{self._oauth_config[CONF_COGNITO_DOMAIN]}/oauth2/token",
         )
 
     async def async_step_user(
         self, user_input: dict[str, str] | None = None
     ) -> config_entries.ConfigFlowResult:
-        self._apply_production_config()
-        return await self.async_step_auth()
+        try:
+            self._apply_production_config()
+            self.register_local_implementation(self.hass, self._build_local_implementation())
+            return await self.async_step_pick_implementation()
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Failed to initialize Tap OAuth flow")
+            return self.async_abort(reason="oauth_init_failed")
 
     async def async_oauth_create_entry(self, data: dict[str, Any]) -> config_entries.ConfigFlowResult:
         title = "Tap"
@@ -65,5 +75,10 @@ class TapOAuth2FlowHandler(config_entry_oauth2_flow.AbstractOAuth2FlowHandler):
         )
 
     async def async_step_reauth(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
-        self._apply_production_config()
-        return await super().async_step_reauth(user_input)
+        try:
+            self._apply_production_config()
+            self.register_local_implementation(self.hass, self._build_local_implementation())
+            return await super().async_step_reauth(user_input)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Failed to initialize Tap OAuth reauth flow")
+            return self.async_abort(reason="reauth_failed")
